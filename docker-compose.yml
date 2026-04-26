@@ -1,0 +1,130 @@
+# Stack: Redis + Postgres + API + workers
+#
+# No .env file required — defaults are inlined below. Copy .env.example to
+# .env only if you want to override (then uncomment the env_file lines).
+
+x-app-environment: &app-environment
+  APP_NAME: redis-social-feed
+  APP_ENV: development
+  APP_HOST: 0.0.0.0
+  APP_PORT: "8000"
+  LOG_LEVEL: INFO
+  SECRET_KEY: change_me_in_production_please_use_long_random_string
+  ACCESS_TOKEN_TTL_SECONDS: "86400"
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: feeduser
+  POSTGRES_PASSWORD: feedpass
+  POSTGRES_DB: feeddb
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  FEED_MAX_SIZE: "1000"
+  FANOUT_BATCH_SIZE: "500"
+  CELEBRITY_FOLLOWER_THRESHOLD: "10000"
+  RATE_LIMIT_DEFAULT_PER_MINUTE: "120"
+  RATE_LIMIT_WRITE_PER_MINUTE: "30"
+  TRENDING_DECAY_LAMBDA: "0.08"
+  TRENDING_WINDOW_HOURS: "48"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: feed-redis
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: feed-postgres
+    environment:
+      POSTGRES_USER: feeduser
+      POSTGRES_PASSWORD: feedpass
+      POSTGRES_DB: feeddb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feeduser -d feeddb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    container_name: feed-api
+    environment:
+      <<: *app-environment
+    # Optional: merge overrides from a local file (create from .env.example)
+    # env_file:
+    #   - path: .env
+    #     required: false
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    # No --reload in Docker: avoids watch/inotify issues and matches prod
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  worker-fanout:
+    build: .
+    container_name: feed-worker-fanout
+    environment:
+      <<: *app-environment
+      WORKER_NAME: fanout-1
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: python -m app.workers.fanout_worker
+
+  worker-notifications:
+    build: .
+    container_name: feed-worker-notifications
+    environment:
+      <<: *app-environment
+      WORKER_NAME: notif-1
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: python -m app.workers.notification_worker
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # These are browser-facing URLs. They intentionally use localhost
+        # because bundled JavaScript runs in the user's browser, not inside the
+        # Docker network.
+        VITE_API_BASE_URL: http://localhost:8000
+        VITE_WS_BASE_URL: ws://localhost:8000
+    container_name: feed-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  redis_data:
+  postgres_data:

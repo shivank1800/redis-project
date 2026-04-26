@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+/*
+  Tailwind v4 defaults dark variants to media queries. This project uses an
+  explicit `.dark` class so the app can toggle dark mode from Zustand.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Global styles are intentionally tiny.
+
+  Tailwind handles most styling in components. Keeping this file small makes
+  the learning project easier to read: layout lives near markup, while global
+  rules only cover browser defaults and app-wide polish.
+*/
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+a,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
