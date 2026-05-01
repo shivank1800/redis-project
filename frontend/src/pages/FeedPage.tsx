@@ -39,14 +39,16 @@ export function FeedPage() {
       <section className="space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-black tracking-tight">Home feed</h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+              <span className="gradient-text">Home</span> feed
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Redis Sorted Set timeline with optimistic UI.
             </p>
           </div>
           <Button variant="ghost" onClick={() => void refresh()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
 

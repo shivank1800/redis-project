@@ -27,17 +27,35 @@ export function NotificationsPage() {
       <Card>
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-3xl font-black tracking-tight">Notifications</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {isLive ? "Live via WebSocket + Redis Pub/Sub" : "Polling Redis Stream history"}
+            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+              <span className="gradient-text">Notifications</span>
+            </h1>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              {isLive
+                ? "Live via WebSocket + Redis Pub/Sub"
+                : "Polling Redis Stream history"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold dark:bg-slate-950">
-              {isLive ? <Wifi className="h-4 w-4 text-emerald-500" /> : <WifiOff className="h-4 w-4 text-amber-500" />}
-              {connectionState}
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold ${
+                isLive
+                  ? "border-emerald-200/70 bg-emerald-50/80 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  : "border-amber-200/70 bg-amber-50/80 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+              }`}
+            >
+              {isLive ? (
+                <Wifi className="h-4 w-4" />
+              ) : (
+                <WifiOff className="h-4 w-4" />
+              )}
+              <span className="uppercase tracking-wider">{connectionState}</span>
             </span>
-            {unread > 0 && <Button onClick={() => void markAllRead()}>Mark read ({unread})</Button>}
+            {unread > 0 && (
+              <Button onClick={() => void markAllRead()}>
+                Mark read ({unread})
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => void reload()}>
               Refresh
             </Button>

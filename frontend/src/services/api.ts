@@ -38,8 +38,27 @@ import type {
 import { ApiError } from "../types/api";
 import { clearAuthStorage, getStoredToken } from "../utils/storage";
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-export const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? "ws://localhost:8000";
+/**
+ * In local `npm run dev`, default to same-origin requests so Vite can proxy to
+ * FastAPI. That way signup and other calls work when the UI is opened as
+ * http://<LAN-IP>:5173 (the browser would otherwise try <device>:8000 for
+ * localhost:8000 and fail). Production builds still default to localhost:8000
+ * unless VITE_API_BASE_URL is set at build time (e.g. Docker).
+ */
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.DEV ? "" : "http://localhost:8000");
+
+function wsBaseUrl(): string {
+  if (import.meta.env.VITE_WS_BASE_URL) {
+    return import.meta.env.VITE_WS_BASE_URL;
+  }
+  if (import.meta.env.DEV && typeof window !== "undefined") {
+    const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${scheme}//${window.location.host}`;
+  }
+  return "ws://localhost:8000";
+}
 
 const client = axios.create({
   baseURL: API_BASE_URL,
@@ -213,7 +232,7 @@ export const api = {
 };
 
 export function notificationSocketUrl(token: string): string {
-  return `${WS_BASE_URL}/notifications/ws?token=${encodeURIComponent(token)}`;
+  return `${wsBaseUrl()}/notifications/ws?token=${encodeURIComponent(token)}`;
 }
 
 export type LiveNotificationMessage =

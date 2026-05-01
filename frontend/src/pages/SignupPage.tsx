@@ -50,13 +50,20 @@ export function SignupPage() {
         <Field label="Email" type="email" value={email} onChange={setEmail} />
         <Field label="Display name" value={displayName} onChange={setDisplayName} />
         <Field label="Password" type="password" value={password} onChange={setPassword} />
-        {error && <p className="rounded-2xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-        <Button className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Creating..." : "Create account"}
+        {error && (
+          <p className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+            {error}
+          </p>
+        )}
+        <Button className="w-full" size="lg" disabled={isSubmitting}>
+          {isSubmitting ? "Creating…" : "Create account"}
         </Button>
-        <p className="text-center text-sm text-slate-500">
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400">
           Already have an account?{" "}
-          <Link className="font-bold text-slate-900 underline dark:text-white" to="/login">
+          <Link
+            className="font-bold text-slate-900 underline-offset-2 hover:underline dark:text-white"
+            to="/login"
+          >
             Sign in
           </Link>
         </p>
@@ -78,9 +85,11 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-bold">{label}</span>
+      <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+        {label}
+      </span>
       <input
-        className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-slate-400 dark:border-slate-800 dark:bg-slate-950"
+        className="mt-2 w-full rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-[15px] outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-400/25 dark:border-slate-800/70 dark:bg-slate-950/60 dark:focus:border-rose-500"
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}

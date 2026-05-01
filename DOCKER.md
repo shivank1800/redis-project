@@ -1,5 +1,9 @@
 # Docker: get the stack running
 
+> **Podman is the preferred engine** for this project. See
+> [PODMAN.md](./PODMAN.md) for the rootless/daemonless setup. Docker works
+> equally well — the `Makefile` auto-detects whichever engine is installed.
+
 ## 1. Docker must be running
 
 **macOS / Windows:** open **Docker Desktop** and wait until it says **Docker Engine is running** (whale icon steady, not animating).
@@ -29,18 +33,26 @@ If you see `Cannot connect to the Docker daemon` or `no such file or directory` 
 docker compose version
 ```
 
-**If you get `unknown command: docker compose`**, install the Compose plugin or the standalone binary:
+**If you get `unknown command: docker compose`** (or **`unknown flag: --build`**
+when you run `docker compose up --build`), your CLI does not have the Compose v2
+plugin wired up — `docker` is not treating `compose` as a subcommand. Install
+the plugin (Docker Desktop includes it) or use the standalone v1 binary:
 
 - **macOS (Homebrew):** `brew install docker-compose`  
-  Then use **`docker-compose`** instead of **`docker compose`** everywhere, or run:
+  Then use **`docker-compose`** (hyphen) instead of **`docker compose`** (space), or run:
 
   ```bash
-  make DC='docker-compose' up
+  make up COMPOSE=docker-compose
   ```
+
+  Verify the v2 plugin with **`docker compose version`** — it should print a
+  compose version line, not an error.
 
 - **Linux:** follow [Install Docker Compose](https://docs.docker.com/compose/install/).
 
-This repo’s **Makefile** picks `docker compose` when it works, otherwise `docker-compose`.
+This repo’s **Makefile** auto-detects the first available of:
+`podman compose` → `podman-compose` → `docker compose` → `docker-compose`.
+Override explicitly with `make up COMPOSE='docker compose'` if needed.
 
 ---
 

@@ -48,25 +48,30 @@ export function SearchPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <div>
-        <h1 className="text-3xl font-black tracking-tight">Recent activity search</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+          <span className="gradient-text">Recent</span> activity search
+        </h1>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           Debounced queries over the backend's Redis capped activity log.
         </p>
       </div>
 
       <Card>
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 transition focus-within:border-rose-400 focus-within:ring-2 focus-within:ring-rose-400/20 dark:border-slate-800/70 dark:bg-slate-950/60">
           <Search className="h-5 w-5 text-slate-500" />
           <input
-            className="w-full bg-transparent text-sm outline-none"
+            className="w-full bg-transparent text-[15px] outline-none placeholder:text-slate-400"
             placeholder="Search e.g. post:42, follow, comment"
             value={query}
             onChange={(event) => updateQuery(event.target.value)}
           />
+          {isLoading && (
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+              searching…
+            </span>
+          )}
         </div>
       </Card>
-
-      {isLoading && <p className="text-sm text-slate-500">Searching...</p>}
 
       {!isLoading && query && results.length === 0 && (
         <EmptyState title="No recent activity found" body="Try another keyword." />

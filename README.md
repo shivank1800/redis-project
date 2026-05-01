@@ -61,17 +61,46 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the deep-dive on scaling, failure
 
 ---
 
-## Quick start (Docker, recommended)
+## Quick start (Podman, recommended — Docker also works)
 
-**You do not need a `.env` file** for Docker — defaults are in `docker-compose.yml`.
+**You do not need a `.env` file** — defaults are in `docker-compose.yml`.
+The `Makefile` auto-detects your container engine (Podman preferred,
+Docker as fallback).
+
+**macOS + Podman:** after `brew install podman`, also install a Compose provider
+or **`podman compose`** will fail (see **[PODMAN.md](./PODMAN.md) §2**). The usual
+one-liner:
+
+Run **one block at a time** (pasting several lines into one `brew` command will
+error with *accepts at most 1 arg*).
+
+```bash
+brew install podman docker-compose
+```
+
+```bash
+podman machine init
+podman machine start
+```
+
+```bash
+cd /path/to/your/redis-project-clone
+make up
+```
+
+Other ways to run:
 
 ```bash
 make up
-# or:  docker compose up --build -d
-# or:  docker-compose up --build -d   (if you only have the v1 binary)
+# or, explicitly:
+podman compose up --build -d
+# or, with Docker Desktop:
+docker compose up --build -d
 ```
 
-If Docker fails to start, read **[DOCKER.md](./DOCKER.md)** (daemon not running, missing `docker compose`, port conflicts).
+If the engine fails to start, read **[PODMAN.md](./PODMAN.md)** (or
+**[DOCKER.md](./DOCKER.md)**) — covers machine startup, missing compose
+providers, port conflicts, rootless quirks.
 
 This brings up:
 - `feed-redis` (Redis 7, AOF + RDB, LRU eviction, 512MB cap)
@@ -79,6 +108,7 @@ This brings up:
 - `feed-api` (FastAPI on :8000)
 - `feed-worker-fanout` (feed fan-out worker)
 - `feed-worker-notifications` (notification persistence worker)
+- `feed-frontend` (React + Vite UI on :5173)
 
 Open:
 - Frontend:  http://localhost:5173
@@ -94,8 +124,8 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Start Redis + Postgres only via docker
-docker compose up -d redis postgres
+# Start Redis + Postgres only (Podman or Docker)
+podman compose up -d redis postgres   # or: docker compose up -d redis postgres
 
 # Terminal 1: API
 uvicorn app.main:app --reload
