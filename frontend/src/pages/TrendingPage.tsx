@@ -64,6 +64,8 @@ export function TrendingPage() {
           ];
           const rankStyle =
             rankStyles[index] ?? "from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800";
+          const authorName =
+            item.post.author?.display_name || item.post.author?.username || `User #${item.post.author_id}`;
           return (
             <Card key={item.post.id} hover className="animate-fade-in">
               <div className="flex gap-4">
@@ -78,7 +80,7 @@ export function TrendingPage() {
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                     <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                      User #{item.post.author_id}
+                      {authorName}
                     </span>
                     <span>·</span>
                     <span>{relativeTime(item.post.created_at)}</span>

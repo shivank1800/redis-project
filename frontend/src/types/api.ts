@@ -46,6 +46,7 @@ export type TokenResponse = {
 export type Post = {
   id: number;
   author_id: number;
+  author?: UserPublic | null;
   content: string;
   created_at: string;
   like_count: number;

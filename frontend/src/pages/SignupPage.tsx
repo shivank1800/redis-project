@@ -49,7 +49,13 @@ export function SignupPage() {
         <Field label="Username" value={username} onChange={setUsername} />
         <Field label="Email" type="email" value={email} onChange={setEmail} />
         <Field label="Display name" value={displayName} onChange={setDisplayName} />
-        <Field label="Password" type="password" value={password} onChange={setPassword} />
+        <Field
+          label="Password"
+          type="password"
+          value={password}
+          onChange={setPassword}
+          maxLength={72}
+        />
         {error && (
           <p className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
             {error}
@@ -77,11 +83,13 @@ function Field({
   value,
   onChange,
   type = "text",
+  maxLength,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
+  maxLength?: number;
 }) {
   return (
     <label className="block">
@@ -92,6 +100,7 @@ function Field({
         className="mt-2 w-full rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-[15px] outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-400/25 dark:border-slate-800/70 dark:bg-slate-950/60 dark:focus:border-rose-500"
         type={type}
         value={value}
+        maxLength={maxLength}
         onChange={(event) => onChange(event.target.value)}
       />
     </label>

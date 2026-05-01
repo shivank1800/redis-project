@@ -15,6 +15,8 @@ from app.services import notification_service, session_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+_active_ws_tokens: set[str] = set()
+_active_ws_lock = asyncio.Lock()
 
 
 @router.get("")
@@ -53,23 +55,33 @@ async def notifications_ws(websocket: WebSocket, token: str | None = None):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
+    async with _active_ws_lock:
+        if token in _active_ws_tokens:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        _active_ws_tokens.add(token)
+
     redis = await get_redis()
-    user_id = await _resolve_user(redis, token)
-    if user_id is None:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    history = await notification_service.list_notifications(redis, user_id, limit=20)
-    await websocket.send_json({"type": "history", "items": history})
-
-    channel = K.notification_pubsub(user_id)
+    user_id: int | None = None
     try:
+        user_id = await _resolve_user(redis, token)
+        if user_id is None:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+        history = await notification_service.list_notifications(redis, user_id, limit=20)
+        await websocket.send_json({"type": "history", "items": history})
+
+        channel = K.notification_pubsub(user_id)
         async for payload in pubsub.subscribe(redis, channel):
             await websocket.send_json({"type": "event", "payload": payload})
     except WebSocketDisconnect:
         logger.info("WS disconnected user=%s", user_id)
     except asyncio.CancelledError:
         pass
+    finally:
+        async with _active_ws_lock:
+            _active_ws_tokens.discard(token)
 
 
 async def _resolve_user(redis, token: str) -> int | None:

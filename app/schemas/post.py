@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.schemas.common import ORMModel
+from app.schemas.user import UserPublic
 
 
 class PostCreate(BaseModel):
@@ -14,6 +15,7 @@ class PostCreate(BaseModel):
 class PostOut(ORMModel):
     id: int
     author_id: int
+    author: UserPublic | None = None
     content: str
     created_at: datetime
     like_count: int = 0

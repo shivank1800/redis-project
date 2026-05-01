@@ -43,11 +43,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models import Post
+from app.models import Post, User
 from app.redis_layer import cache
 from app.redis_layer.keys import K
 from app.redis_layer.queue import StreamQueue
 from app.schemas.post import PostCreate, PostOut
+from app.schemas.user import UserPublic
 from app.services import trending_service
 
 logger = logging.getLogger(__name__)
@@ -68,13 +69,15 @@ async def create_post(
     pipe = redis.pipeline()
     pipe.zadd(K.user_posts(author_id), {str(post.id): score})
     pipe.zremrangebyrank(K.user_posts(author_id), 0, -settings.feed_max_size - 1)
+    pipe.zadd(K.home_feed(author_id), {str(post.id): score})
+    pipe.zremrangebyrank(K.home_feed(author_id), 0, -settings.feed_max_size - 1)
+    pipe.zadd(K.GLOBAL_RECENT_FEED, {str(post.id): score})
+    pipe.zremrangebyrank(K.GLOBAL_RECENT_FEED, 0, -settings.feed_max_size - 1)
     # Pre-warm post cache.
-    pipe.set(
-        K.post_cache(post.id),
-        PostOut.model_validate(post).model_dump_json(),
-        ex=POST_CACHE_TTL,
-    )
     await pipe.execute()
+
+    out = await _post_out(db, post)
+    await redis.set(K.post_cache(post.id), out.model_dump_json(), ex=POST_CACHE_TTL)
 
     follower_count = int(
         await redis.get(K.user_follower_count(author_id)) or 0
@@ -188,12 +191,40 @@ async def get_home_feed(
                 for pid, score in rows:
                     merged[int(pid)] = max(score, merged.get(int(pid), 0.0))
 
+    await _backfill_global_recent_feed(db, redis)
+
+    global_rows = await redis.zrevrangebyscore(
+        K.GLOBAL_RECENT_FEED,
+        max=max_score,
+        min="-inf",
+        start=0,
+        num=limit,
+        withscores=True,
+    )
+    for pid, score in global_rows:
+        merged[int(pid)] = max(score, merged.get(int(pid), 0.0))
+
     if not merged:
         return []
 
     top = sorted(merged.items(), key=lambda kv: kv[1], reverse=True)[:limit]
     post_ids = [pid for pid, _ in top]
     return await hydrate_posts(db, redis, post_ids)
+
+
+async def _backfill_global_recent_feed(db: AsyncSession, redis: aioredis.Redis) -> None:
+    if await redis.exists(K.GLOBAL_RECENT_FEED):
+        return
+
+    rows = await db.execute(
+        select(Post).order_by(Post.created_at.desc()).limit(settings.feed_max_size)
+    )
+    mapping = {
+        str(post.id): post.created_at.timestamp()
+        for post in rows.scalars()
+    }
+    if mapping:
+        await redis.zadd(K.GLOBAL_RECENT_FEED, mapping)
 
 
 async def hydrate_posts(
@@ -219,9 +250,21 @@ async def hydrate_posts(
         rows = await db.execute(select(Post).where(Post.id.in_(misses)))
         pipe = redis.pipeline()
         for post in rows.scalars():
-            out = PostOut.model_validate(post)
+            out = await _post_out(db, post)
             result[post.id] = out
             pipe.set(K.post_cache(post.id), out.model_dump_json(), ex=POST_CACHE_TTL)
+        await pipe.execute()
+
+    missing_author = [post for post in result.values() if post.author is None]
+    if missing_author:
+        users = await db.execute(
+            select(User).where(User.id.in_({post.author_id for post in missing_author}))
+        )
+        by_id = {user.id: UserPublic.model_validate(user) for user in users.scalars()}
+        pipe = redis.pipeline()
+        for post in missing_author:
+            post.author = by_id.get(post.author_id)
+            pipe.set(K.post_cache(post.id), post.model_dump_json(), ex=POST_CACHE_TTL)
         await pipe.execute()
 
     # Overlay live counters from Redis (always fresher than the cached blob).
@@ -238,6 +281,14 @@ async def hydrate_posts(
             result[pid].comment_count = max(result[pid].comment_count, comments)
 
     return [result[pid] for pid in post_ids if pid in result]
+
+
+async def _post_out(db: AsyncSession, post: Post) -> PostOut:
+    out = PostOut.model_validate(post)
+    author = await db.get(User, post.author_id)
+    if author:
+        out.author = UserPublic.model_validate(author)
+    return out
 
 
 async def backfill_follower_feed(

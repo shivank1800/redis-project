@@ -94,6 +94,8 @@ export function TrendingPanel() {
                   {item.post.content.slice(0, 140)}
                 </p>
                 <div className="mt-1.5 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>{item.post.author?.display_name || item.post.author?.username || `User #${item.post.author_id}`}</span>
+                  <span>·</span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
                     score {item.score.toFixed(2)}
                   </span>

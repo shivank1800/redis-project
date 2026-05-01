@@ -18,7 +18,8 @@ async def create_post(
     await analytics_service.record_activity(
         redis, user_id=user_id, kind="post", target=f"post:{post.id}"
     )
-    return PostOut.model_validate(post)
+    hydrated = await feed_service.hydrate_posts(db, redis, [post.id])
+    return hydrated[0] if hydrated else PostOut.model_validate(post)
 
 
 @router.get("/{post_id}", response_model=PostOut)

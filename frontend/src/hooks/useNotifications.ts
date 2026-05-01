@@ -65,6 +65,7 @@ export function useNotifications(): NotificationsState {
     let pollingTimer: number | undefined;
     let reconnectTimer: number | undefined;
     let didFallbackToPolling = false;
+    let isDisposed = false;
 
     void loadHistory();
 
@@ -78,15 +79,18 @@ export function useNotifications(): NotificationsState {
     };
 
     const connect = () => {
+      if (isDisposed || didFallbackToPolling) return;
       setConnectionState("connecting");
       const socket = new WebSocket(notificationSocketUrl(token));
       socketRef.current = socket;
 
       socket.onopen = () => {
+        if (isDisposed) return;
         setConnectionState("live");
       };
 
       socket.onmessage = (event) => {
+        if (isDisposed) return;
         const message = JSON.parse(event.data) as LiveNotificationMessage;
 
         if (message.type === "history") {
@@ -99,13 +103,15 @@ export function useNotifications(): NotificationsState {
       };
 
       socket.onerror = () => {
+        if (isDisposed) return;
         startPolling();
       };
 
       socket.onclose = () => {
+        if (isDisposed || didFallbackToPolling) return;
         // Give WebSocket one reconnect attempt before relying on polling.
         reconnectTimer = window.setTimeout(() => {
-          if (!didFallbackToPolling) {
+          if (!isDisposed && !didFallbackToPolling) {
             connect();
             startPolling();
           }
@@ -116,9 +122,18 @@ export function useNotifications(): NotificationsState {
     connect();
 
     return () => {
+      isDisposed = true;
       window.clearInterval(pollingTimer);
       window.clearTimeout(reconnectTimer);
-      socketRef.current?.close();
+      const socket = socketRef.current;
+      socketRef.current = null;
+      if (socket && socket.readyState !== WebSocket.CLOSED) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        socket.close();
+      }
     };
   }, [loadHistory, token]);
 

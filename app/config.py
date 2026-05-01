@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     redis_db: int = 0
     redis_password: str | None = None
+    redis_max_connections: int = 500
 
     # --- Feed tuning ---------------------------------------------------------
     # Maximum number of entries kept per user's materialised timeline.

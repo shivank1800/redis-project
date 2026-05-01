@@ -66,6 +66,11 @@ export function PostCard({
 
   const isSyncing = post.id < 0;
   const avatarGradient = gradientFor(post.author_id);
+  const authorName = post.author?.display_name || post.author?.username || `User #${post.author_id}`;
+  const authorHandle = post.author?.username ? `@${post.author.username}` : null;
+  const avatarText = (post.author?.display_name || post.author?.username || String(post.author_id))
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <Card hover className="animate-fade-in">
@@ -76,10 +81,10 @@ export function PostCard({
             "grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br text-white shadow-[0_8px_24px_-8px_rgba(15,23,42,0.35)] transition-transform duration-200 hover:scale-105",
             avatarGradient,
           )}
-          aria-label={`Open profile of user ${post.author_id}`}
+          aria-label={`Open profile of ${authorName}`}
         >
           <span className="text-base font-black tracking-tight">
-            {String(post.author_id).slice(-2).padStart(2, "0")}
+            {avatarText}
           </span>
         </Link>
 
@@ -89,8 +94,13 @@ export function PostCard({
               to={`/profile/${post.author_id}`}
               className="font-bold text-slate-900 hover:underline dark:text-slate-50"
             >
-              User #{post.author_id}
+              {authorName}
             </Link>
+            {authorHandle && (
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                {authorHandle}
+              </span>
+            )}
             <span className="text-slate-400">·</span>
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
               {relativeTime(post.created_at)}

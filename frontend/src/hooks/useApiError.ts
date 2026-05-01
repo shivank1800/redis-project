@@ -10,6 +10,7 @@
  * global banner rather than a confusing raw server error.
  */
 
+import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useUiStore } from "../store/uiStore";
@@ -19,7 +20,7 @@ export function useApiError() {
   const navigate = useNavigate();
   const showRateLimit = useUiStore((state) => state.showRateLimit);
 
-  return (error: unknown): string => {
+  return useCallback((error: unknown): string => {
     if (error instanceof ApiError) {
       if (error.kind === "rate_limited") {
         showRateLimit(error.message);
@@ -36,5 +37,5 @@ export function useApiError() {
     }
 
     return "Something went wrong. Please try again.";
-  };
+  }, [navigate, showRateLimit]);
 }

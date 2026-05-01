@@ -70,6 +70,8 @@ class K:
         """User's own posts timeline (used for fan-out on read)."""
         return f"feed:user:{user_id}"
 
+    GLOBAL_RECENT_FEED = "feed:global:recent"
+
     # --- Trending ------------------------------------------------------------
     TRENDING_POSTS = "trending:posts"  # ZSET with decayed scores
 

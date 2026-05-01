@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.schemas.common import ORMModel
 
@@ -13,6 +13,13 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     display_name: str = Field(default="", max_length=128)
     bio: str = Field(default="", max_length=512)
+
+    @field_validator("password")
+    @classmethod
+    def password_fits_bcrypt(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("password must be 72 bytes or fewer")
+        return value
 
 
 class UserPublic(ORMModel):

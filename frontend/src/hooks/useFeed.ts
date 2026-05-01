@@ -80,6 +80,7 @@ export function useFeed() {
       const optimisticPost: Post = {
         id: -Date.now(),
         author_id: currentUser.id,
+        author: currentUser,
         content,
         created_at: new Date().toISOString(),
         like_count: 0,
