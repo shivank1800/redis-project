@@ -4,9 +4,9 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
+import orjson
 
 from app.api.deps import CurrentUser, RedisDep
-from app.redis_layer import pubsub
 from app.redis_layer.client import get_redis
 from app.redis_layer.keys import K
 from app.security import decode_token
@@ -15,8 +15,6 @@ from app.services import notification_service, session_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
-_active_ws_tokens: set[str] = set()
-_active_ws_lock = asyncio.Lock()
 
 
 @router.get("")
@@ -55,12 +53,6 @@ async def notifications_ws(websocket: WebSocket, token: str | None = None):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    async with _active_ws_lock:
-        if token in _active_ws_tokens:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
-        _active_ws_tokens.add(token)
-
     redis = await get_redis()
     user_id: int | None = None
     try:
@@ -73,15 +65,49 @@ async def notifications_ws(websocket: WebSocket, token: str | None = None):
         await websocket.send_json({"type": "history", "items": history})
 
         channel = K.notification_pubsub(user_id)
-        async for payload in pubsub.subscribe(redis, channel):
-            await websocket.send_json({"type": "event", "payload": payload})
+        pubsub_client = redis.pubsub()
+        await pubsub_client.subscribe(channel)
+        try:
+            while True:
+                msg_task = asyncio.create_task(
+                    pubsub_client.get_message(
+                        ignore_subscribe_messages=True,
+                        timeout=1.0,
+                    )
+                )
+                recv_task = asyncio.create_task(websocket.receive())
+                done, pending = await asyncio.wait(
+                    {msg_task, recv_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    await asyncio.gather(*pending, return_exceptions=True)
+
+                if recv_task in done:
+                    event = recv_task.result()
+                    if event["type"] == "websocket.disconnect":
+                        break
+
+                if msg_task in done:
+                    message = msg_task.result()
+                    if not message or message.get("type") != "message":
+                        continue
+                    payload = message.get("data")
+                    if isinstance(payload, bytes):
+                        payload = payload.decode()
+                    await websocket.send_json(
+                        {"type": "event", "payload": orjson.loads(payload)}
+                    )
+        finally:
+            await pubsub_client.unsubscribe(channel)
+            await pubsub_client.aclose()
     except WebSocketDisconnect:
         logger.info("WS disconnected user=%s", user_id)
     except asyncio.CancelledError:
         pass
-    finally:
-        async with _active_ws_lock:
-            _active_ws_tokens.discard(token)
 
 
 async def _resolve_user(redis, token: str) -> int | None:

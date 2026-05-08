@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       host: "0.0.0.0",
+      allowedHosts: true,
       proxy: Object.fromEntries(
         API_PREFIXES.map((prefix) => [
           `/${prefix}`,

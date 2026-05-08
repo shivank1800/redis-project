@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import time
 
+from redis.exceptions import RedisError
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -29,6 +30,11 @@ _EXEMPT_PATHS = {"/health", "/metrics", "/docs", "/redoc", "/openapi.json"}
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
+        # Never rate-limit CORS preflight; blocking OPTIONS surfaces as opaque
+        # "network error" failures in browsers before the real request is sent.
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         if path in _EXEMPT_PATHS or path.startswith("/ws/"):
             return await call_next(request)
 
@@ -44,7 +50,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         limiter = SlidingWindowLimiter(
             redis, window_seconds=60, max_events=limit
         )
-        result = await limiter.check(K.rate_limit(bucket, identity))
+        try:
+            result = await limiter.check(K.rate_limit(bucket, identity))
+        except RedisError as exc:
+            # Fail-open if Redis is temporarily saturated/unavailable; serving
+            # requests is preferable to returning opaque 500 network failures.
+            logger.warning("Rate limiter unavailable (%s); skipping check", exc)
+            return await call_next(request)
+
         if not result.allowed:
             logger.info(
                 "Rate-limited identity=%s bucket=%s retry_after_ms=%d",

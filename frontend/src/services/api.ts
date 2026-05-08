@@ -65,6 +65,30 @@ const client = axios.create({
   timeout: 12_000,
 });
 
+function extractErrorMessage(payload: unknown): string {
+  if (typeof payload === "string" && payload.trim()) return payload;
+  if (!payload || typeof payload !== "object") return "Request failed.";
+
+  const record = payload as Record<string, unknown>;
+  if (typeof record.detail === "string" && record.detail.trim()) {
+    return record.detail;
+  }
+  if (typeof record.error === "string" && record.error.trim()) {
+    return record.error;
+  }
+
+  if (Array.isArray(record.detail) && record.detail.length > 0) {
+    const first = record.detail[0];
+    if (typeof first === "string" && first.trim()) return first;
+    if (first && typeof first === "object") {
+      const msg = (first as Record<string, unknown>).msg;
+      if (typeof msg === "string" && msg.trim()) return msg;
+    }
+  }
+
+  return "Request failed.";
+}
+
 client.interceptors.request.use((config) => {
   const token = getStoredToken();
   if (token) {
@@ -107,7 +131,7 @@ client.interceptors.response.use(
 
     const kind: ApiErrorKind = status && status >= 500 ? "server" : "unknown";
     throw new ApiError(
-      error.response.data?.detail ?? error.response.data?.error ?? "Request failed.",
+      extractErrorMessage(error.response.data),
       kind,
       status,
     );
